@@ -1,0 +1,95 @@
+{
+  "name": "dotnet-build-buddy",
+  "displayName": "DotNET Build Buddy",
+  "description": "Automatically generates and updates .sln, .csproj, .fsproj, and .vbproj files when .NET ecosystem changes are detected",
+  "version": "1.0.0",
+  "publisher": "dotnet-build-buddy",
+  "engines": {
+    "vscode": "^1.74.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "keywords": [
+    "dotnet",
+    "csharp",
+    "fsharp",
+    "vb.net",
+    "project",
+    "solution",
+    "build"
+  ],
+  "activationEvents": [
+    "workspaceContains:**/*.cs",
+    "workspaceContains:**/*.fs",
+    "workspaceContains:**/*.vb",
+    "workspaceContains:**/*.csproj",
+    "workspaceContains:**/*.fsproj",
+    "workspaceContains:**/*.vbproj",
+    "workspaceContains:**/*.sln"
+  ],
+  "main": "./out/extension.js",
+  "contributes": {
+    "commands": [
+      {
+        "command": "dotnetBuildBuddy.generateSolution",
+        "title": "Generate Solution File",
+        "category": "DotNET Build Buddy"
+      },
+      {
+        "command": "dotnetBuildBuddy.updateProjects",
+        "title": "Update Project Files",
+        "category": "DotNET Build Buddy"
+      },
+      {
+        "command": "dotnetBuildBuddy.refreshAll",
+        "title": "Refresh All .NET Files",
+        "category": "DotNET Build Buddy"
+      }
+    ],
+    "configuration": {
+      "title": "DotNET Build Buddy",
+      "properties": {
+        "dotnetBuildBuddy.autoUpdate": {
+          "type": "boolean",
+          "default": true,
+          "description": "Automatically update project files when changes are detected"
+        },
+        "dotnetBuildBuddy.watchPatterns": {
+          "type": "array",
+          "default": [
+            "**/*.cs",
+            "**/*.fs",
+            "**/*.vb"
+          ],
+          "description": "File patterns to watch for changes"
+        },
+        "dotnetBuildBuddy.excludePatterns": {
+          "type": "array",
+          "default": [
+            "**/bin/**",
+            "**/obj/**",
+            "**/node_modules/**"
+          ],
+          "description": "Patterns to exclude from watching"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run compile",
+    "compile": "tsc -p ./",
+    "watch": "tsc -watch -p ./"
+  },
+  "devDependencies": {
+    "@types/glob": "^8.1.0",
+    "@types/node": "16.x",
+    "@types/vscode": "^1.74.0",
+    "typescript": "^4.9.4"
+  },
+  "dependencies": {
+    "glob": "^8.1.0",
+    "xml2js": "^0.6.2"
+  },
+  "license": "Apache-2.0"
+}
