@@ -18,12 +18,40 @@ import * as vscode from 'vscode';
 import * as fs from 'fs';
 import * as path from 'path';
 import { glob } from 'glob';
+import * as xml2js from 'xml2js';
+import { NuGetCompatibilityChecker } from './nugetCompatibilityChecker';
+import { NuGetDiagnosticProvider } from './nugetDiagnosticProvider';
+
+interface ProjectInfo {
+    targetFramework?: string;
+    targetFrameworks?: string[];
+    nullable?: string;
+    rootNamespace?: string;
+    sdk?: string;
+    customProperties?: Record<string, string>;
+    packageReferences?: Array<{ Include: string; Version?: string }>;
+    customItemGroups?: string[];
+}
+
+interface DotNetVersionInfo {
+    type: 'net' | 'netcoreapp' | 'netframework' | 'netstandard';
+    version?: string;
+    fullTargetFramework: string;
+}
 
 export class DotNetProjectManager {
     private workspaceRoot: string;
+    private parser: xml2js.Parser;
+    private builder: xml2js.Builder;
+    private compatibilityChecker: NuGetCompatibilityChecker;
+    private diagnosticProvider: NuGetDiagnosticProvider;
 
     constructor() {
         this.workspaceRoot = vscode.workspace.workspaceFolders?.[0]?.uri.fsPath || '';
+        this.parser = new xml2js.Parser({ explicitArray: false, mergeAttrs: true });
+        this.builder = new xml2js.Builder({ headless: true, renderOpts: { pretty: true, indent: '  ' } });
+        this.compatibilityChecker = new NuGetCompatibilityChecker();
+        this.diagnosticProvider = new NuGetDiagnosticProvider();
     }
 
     public async generateSolutionFile(): Promise<void> {
@@ -56,17 +84,81 @@ export class DotNetProjectManager {
 
         try {
             const sourceFiles = await this.findSourceFiles();
-            const projectsByType = this.groupSourceFilesByProjectType(sourceFiles);
+            // Improved grouping: group by directory structure, not just file type
+            const projectsByDirectory = this.groupSourceFilesByDirectory(sourceFiles);
 
-            for (const [projectType, files] of Object.entries(projectsByType)) {
+            // Check all existing projects for compatibility issues
+            await this.checkAllProjectCompatibility();
+
+            for (const [projectKey, files] of Object.entries(projectsByDirectory)) {
                 if (files.length > 0) {
-                    await this.updateOrCreateProjectFile(projectType, files);
+                    const [projectType, projectDir] = projectKey.split('|');
+                    await this.updateOrCreateProjectFile(projectType, files, projectDir);
                 }
             }
 
             vscode.window.showInformationMessage('Project files updated successfully');
         } catch (error) {
             vscode.window.showErrorMessage(`Error updating project files: ${error}`);
+        }
+    }
+
+    private async checkAllProjectCompatibility(): Promise<void> {
+        try {
+            const projectFiles = await this.findProjectFiles();
+            
+            for (const projectFile of projectFiles) {
+                try {
+                    const projectInfo = await this.readProjectFile(projectFile);
+                    const targetFramework = projectInfo.targetFramework || 
+                                          projectInfo.targetFrameworks?.[0] ||
+                                          'net8.0';
+
+                    if (projectInfo.packageReferences && projectInfo.packageReferences.length > 0) {
+                        // Use enhanced compatibility check with suggestions
+                        const compatibilityIssues = await this.compatibilityChecker.checkProjectCompatibilityEnhanced(
+                            projectInfo.packageReferences,
+                            targetFramework
+                        );
+
+                        // Update inline diagnostics
+                        await this.diagnosticProvider.updateDiagnostics(projectFile, compatibilityIssues);
+
+                        if (compatibilityIssues.length > 0) {
+                            // Include project file name in the report
+                            const projectName = path.basename(projectFile);
+                            console.warn(`Compatibility issues found in ${projectName}:`, compatibilityIssues);
+                            
+                            // Report will be shown by reportCompatibilityIssues
+                            await this.compatibilityChecker.reportCompatibilityIssues(compatibilityIssues);
+                        }
+
+                        // Suggest framework upgrade
+                        const upgradeSuggestion = await this.compatibilityChecker.suggestFrameworkUpgrade(
+                            targetFramework,
+                            projectInfo.packageReferences
+                        );
+
+                        if (upgradeSuggestion) {
+                            const projectName = path.basename(projectFile);
+                            vscode.window.showInformationMessage(
+                                `💡 ${projectName}: Consider upgrading from ${targetFramework} to ${upgradeSuggestion.suggestedFramework}. ${upgradeSuggestion.reason}`,
+                                'Learn More'
+                            ).then(selection => {
+                                if (selection === 'Learn More') {
+                                    vscode.env.openExternal(vscode.Uri.parse(
+                                        `https://docs.microsoft.com/en-us/dotnet/core/migration/`
+                                    ));
+                                }
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.warn(`Could not check compatibility for ${projectFile}:`, error);
+                }
+            }
+        } catch (error) {
+            console.warn('Error checking project compatibility:', error);
         }
     }
 
@@ -81,16 +173,15 @@ export class DotNetProjectManager {
         
         let allFiles: string[] = [];
         for (const pattern of patterns) {
-            const files = await new Promise<string[]>((resolve, reject) => {
-                glob(pattern, {
+            try {
+                const files = await glob(pattern, {
                     cwd: this.workspaceRoot,
                     ignore: excludePatterns
-                }, (err, matches) => {
-                    if (err) reject(err);
-                    else resolve(matches);
-                });
             });
             allFiles = allFiles.concat(files.map((f: string) => path.join(this.workspaceRoot, f)));
+            } catch (err) {
+                console.error(`Error searching for pattern ${pattern}:`, err);
+            }
         }
         
         return allFiles;
@@ -102,95 +193,234 @@ export class DotNetProjectManager {
         
         let allFiles: string[] = [];
         for (const pattern of patterns) {
-            const files = await new Promise<string[]>((resolve, reject) => {
-                glob(pattern, {
+            try {
+                const files = await glob(pattern, {
                     cwd: this.workspaceRoot,
                     ignore: excludePatterns
-                }, (err, matches) => {
-                    if (err) reject(err);
-                    else resolve(matches);
-                });
             });
             allFiles = allFiles.concat(files.map((f: string) => path.join(this.workspaceRoot, f)));
+            } catch (err) {
+                console.error(`Error searching for pattern ${pattern}:`, err);
+            }
         }
         
         return allFiles;
     }
 
-    private groupSourceFilesByProjectType(sourceFiles: string[]): Record<string, string[]> {
-        const groups: Record<string, string[]> = {
-            'csharp': [],
-            'fsharp': [],
-            'vbnet': []
-        };
+    private groupSourceFilesByDirectory(sourceFiles: string[]): Record<string, string[]> {
+        const groups: Record<string, string[]> = {};
 
         for (const file of sourceFiles) {
             const ext = path.extname(file).toLowerCase();
-            switch (ext) {
-                case '.cs':
-                    groups.csharp.push(file);
-                    break;
-                case '.fs':
-                    groups.fsharp.push(file);
-                    break;
-                case '.vb':
-                    groups.vbnet.push(file);
-                    break;
+            const projectType = this.getProjectTypeFromExtension(ext);
+            const fileDir = path.dirname(file);
+            
+            // Group by project type and directory
+            // Files in the same directory with the same type go to the same project
+            // Files in different directories get separate projects
+            const key = `${projectType}|${fileDir}`;
+            
+            if (!groups[key]) {
+                groups[key] = [];
             }
+            groups[key].push(file);
         }
 
         return groups;
     }
 
-    private async updateOrCreateProjectFile(projectType: string, sourceFiles: string[]): Promise<void> {
-        const projectDir = this.getProjectDirectory(sourceFiles);
+    private getProjectTypeFromExtension(ext: string): string {
+        switch (ext.toLowerCase()) {
+            case '.cs':
+                return 'csharp';
+            case '.fs':
+                return 'fsharp';
+            case '.vb':
+                return 'vbnet';
+            default:
+                return 'csharp';
+        }
+    }
+
+    private async updateOrCreateProjectFile(projectType: string, sourceFiles: string[], projectDir: string): Promise<void> {
         const projectFileName = this.getProjectFileName(projectType, projectDir);
         const projectPath = path.join(projectDir, projectFileName);
 
-        const projectContent = this.generateProjectContent(projectType, sourceFiles, projectDir);
+        // Try to read existing project file to preserve settings
+        let existingProjectInfo: ProjectInfo | null = null;
+        if (fs.existsSync(projectPath)) {
+            try {
+                existingProjectInfo = await this.readProjectFile(projectPath);
+            } catch (error) {
+                console.warn(`Could not read existing project file ${projectPath}:`, error);
+            }
+        }
+
+        // Determine target framework from existing project or detect from workspace
+        const targetFramework = existingProjectInfo?.targetFramework || 
+                               existingProjectInfo?.targetFrameworks?.[0] ||
+                               await this.detectTargetFramework() ||
+                               'net8.0';
+
+        // Check NuGet package compatibility if there are package references
+        if (existingProjectInfo?.packageReferences && existingProjectInfo.packageReferences.length > 0) {
+            try {
+                // Use enhanced compatibility check with suggestions
+                const compatibilityIssues = await this.compatibilityChecker.checkProjectCompatibilityEnhanced(
+                    existingProjectInfo.packageReferences,
+                    targetFramework
+                );
+                
+                // Update inline diagnostics
+                await this.diagnosticProvider.updateDiagnostics(projectPath, compatibilityIssues);
+                
+                // Report issues
+                if (compatibilityIssues.length > 0) {
+                    await this.compatibilityChecker.reportCompatibilityIssues(compatibilityIssues);
+                }
+
+                // Suggest framework upgrade if applicable
+                const upgradeSuggestion = await this.compatibilityChecker.suggestFrameworkUpgrade(
+                    targetFramework,
+                    existingProjectInfo.packageReferences
+                );
+
+                if (upgradeSuggestion) {
+                    vscode.window.showInformationMessage(
+                        `💡 Framework Upgrade Suggestion: Consider upgrading from ${targetFramework} to ${upgradeSuggestion.suggestedFramework}. ${upgradeSuggestion.reason}`,
+                        'Learn More'
+                    ).then(selection => {
+                        if (selection === 'Learn More') {
+                            vscode.env.openExternal(vscode.Uri.parse(
+                                `https://docs.microsoft.com/en-us/dotnet/core/migration/`
+                            ));
+                        }
+                    });
+                }
+            } catch (error) {
+                console.warn('Error checking package compatibility:', error);
+            }
+        }
+
+        const projectContent = this.generateProjectContent(
+            projectType, 
+            sourceFiles, 
+            projectDir, 
+            existingProjectInfo,
+            targetFramework
+        );
         
         fs.mkdirSync(projectDir, { recursive: true });
         fs.writeFileSync(projectPath, projectContent);
     }
 
-    private getProjectDirectory(sourceFiles: string[]): string {
-        if (sourceFiles.length === 0) {
-            return this.workspaceRoot;
-        }
+    private async readProjectFile(projectPath: string): Promise<ProjectInfo> {
+        try {
+            const content = fs.readFileSync(projectPath, 'utf-8');
+            const parsed = await this.parser.parseStringPromise(content);
+            const project = parsed.Project || parsed.Project;
+            
+            const info: ProjectInfo = {};
+            const propertyGroup = Array.isArray(project.PropertyGroup) 
+                ? project.PropertyGroup[0] 
+                : project.PropertyGroup;
 
-        const commonDir = this.findCommonDirectory(sourceFiles);
-        return commonDir || this.workspaceRoot;
+            if (propertyGroup) {
+                info.targetFramework = propertyGroup.TargetFramework || propertyGroup.TargetFramework?.[0];
+                if (propertyGroup.TargetFrameworks) {
+                    const tfms = propertyGroup.TargetFrameworks;
+                    info.targetFrameworks = Array.isArray(tfms) ? tfms : [tfms];
+                }
+                info.nullable = propertyGroup.Nullable || propertyGroup.Nullable?.[0];
+                info.rootNamespace = propertyGroup.RootNamespace || propertyGroup.RootNamespace?.[0];
+                
+                // Preserve other custom properties
+                info.customProperties = {};
+                for (const key in propertyGroup) {
+                    if (!['TargetFramework', 'TargetFrameworks', 'Nullable', 'RootNamespace'].includes(key)) {
+                        info.customProperties[key] = propertyGroup[key];
+                    }
+                }
+            }
+
+            info.sdk = project.$.Sdk || project.$.sdk;
+
+            // Preserve PackageReference items
+            if (project.ItemGroup) {
+                const itemGroups = Array.isArray(project.ItemGroup) ? project.ItemGroup : [project.ItemGroup];
+                for (const itemGroup of itemGroups) {
+                    if (itemGroup.PackageReference) {
+                        const refs = Array.isArray(itemGroup.PackageReference) 
+                            ? itemGroup.PackageReference 
+                            : [itemGroup.PackageReference];
+                        info.packageReferences = refs.map((ref: any) => ({
+                            Include: ref.$.Include || ref.$.include,
+                            Version: ref.$.Version || ref.$.version
+                        }));
+                    }
+                }
+            }
+
+            return info;
+        } catch (error) {
+            console.error(`Error parsing project file ${projectPath}:`, error);
+            return {};
+        }
     }
 
-    private findCommonDirectory(files: string[]): string {
-        if (files.length === 0) {
-            return this.workspaceRoot;
-        }
+    private parseTargetFramework(targetFramework: string): DotNetVersionInfo {
+        const lower = targetFramework.toLowerCase();
+        let type: 'net' | 'netcoreapp' | 'netframework' | 'netstandard';
+        let version: string | undefined;
 
-        const dirs = files.map(f => path.dirname(f));
-        let commonPath = dirs[0];
-
-        for (let i = 1; i < dirs.length; i++) {
-            commonPath = this.getCommonPath(commonPath, dirs[i]);
-        }
-
-        return commonPath;
-    }
-
-    private getCommonPath(path1: string, path2: string): string {
-        const parts1 = path1.split(path.sep);
-        const parts2 = path2.split(path.sep);
-        const commonParts: string[] = [];
-
-        for (let i = 0; i < Math.min(parts1.length, parts2.length); i++) {
-            if (parts1[i] === parts2[i]) {
-                commonParts.push(parts1[i]);
+        if (lower.startsWith('netframework') || lower.startsWith('net')) {
+            if (lower.startsWith('netframework')) {
+                type = 'netframework';
+                version = lower.replace('netframework', '').replace(/^(\d)/, '$1.');
+            } else if (lower.startsWith('netcoreapp')) {
+                type = 'netcoreapp';
+                version = lower.replace('netcoreapp', '').replace(/^(\d)/, '$1.');
+            } else if (lower.startsWith('netstandard')) {
+                type = 'netstandard';
+                version = lower.replace('netstandard', '').replace(/^(\d)/, '$1.');
             } else {
-                break;
+                // Modern .NET (net8.0, net7.0, etc.)
+                type = 'net';
+                const match = lower.match(/net(\d+(?:\.\d+)?)/);
+                version = match ? match[1] : undefined;
+            }
+        } else {
+            type = 'net';
+            version = undefined;
+        }
+
+        return {
+            type,
+            version,
+            fullTargetFramework: targetFramework
+        };
+    }
+
+    private async detectTargetFramework(): Promise<string | null> {
+        // Try to detect from existing projects in workspace
+        const existingProjects = await this.findProjectFiles();
+        
+        for (const projectFile of existingProjects) {
+            try {
+                const info = await this.readProjectFile(projectFile);
+                if (info.targetFramework) {
+                    return info.targetFramework;
+                }
+                if (info.targetFrameworks && info.targetFrameworks.length > 0) {
+                    return info.targetFrameworks[0];
+                }
+            } catch (error) {
+                // Continue to next project
             }
         }
 
-        return commonParts.join(path.sep);
+        // Default to .NET 8.0
+        return 'net8.0';
     }
 
     private getProjectFileName(projectType: string, projectDir: string): string {
@@ -207,67 +437,151 @@ export class DotNetProjectManager {
         }
     }
 
-    private generateProjectContent(projectType: string, sourceFiles: string[], projectDir: string): string {
+    private generateProjectContent(
+        projectType: string, 
+        sourceFiles: string[], 
+        projectDir: string,
+        existingInfo: ProjectInfo | null,
+        targetFramework: string
+    ): string {
         const relativeFiles = sourceFiles.map(f => path.relative(projectDir, f));
+        const versionInfo = this.parseTargetFramework(targetFramework);
         
         switch (projectType) {
             case 'csharp':
-                return this.generateCSharpProject(relativeFiles);
+                return this.generateCSharpProject(relativeFiles, existingInfo, versionInfo);
             case 'fsharp':
-                return this.generateFSharpProject(relativeFiles);
+                return this.generateFSharpProject(relativeFiles, existingInfo, versionInfo);
             case 'vbnet':
-                return this.generateVBNetProject(relativeFiles);
+                return this.generateVBNetProject(relativeFiles, existingInfo, versionInfo);
             default:
-                return this.generateCSharpProject(relativeFiles);
+                return this.generateCSharpProject(relativeFiles, existingInfo, versionInfo);
         }
     }
 
-    private generateCSharpProject(sourceFiles: string[]): string {
-        const includes = sourceFiles.map(f => `    <Compile Include="${f}" />`).join('\n');
+    private generateCSharpProject(
+        sourceFiles: string[], 
+        existingInfo: ProjectInfo | null,
+        versionInfo: DotNetVersionInfo
+    ): string {
+        const hasSubdirectories = sourceFiles.some(f => f.includes(path.sep) || f.includes('/'));
         
-        return `<Project Sdk="Microsoft.NET.Sdk">
+        // Use existing target framework or detected one
+        const targetFramework = existingInfo?.targetFramework || versionInfo.fullTargetFramework;
+        const nullable = existingInfo?.nullable || 'enable';
+        
+        let includes = '';
+        if (hasSubdirectories) {
+            const includesList = sourceFiles.map(f => `    <Compile Include="${f}" />`).join('\n');
+            includes = `\n  <ItemGroup>\n${includesList}\n  </ItemGroup>`;
+        }
+
+        // Preserve custom properties
+        let customProps = '';
+        if (existingInfo?.customProperties) {
+            for (const [key, value] of Object.entries(existingInfo.customProperties)) {
+                customProps += `\n    <${key}>${value}</${key}>`;
+            }
+        }
+
+        // Preserve PackageReferences
+        let packageRefs = '';
+        if (existingInfo?.packageReferences && existingInfo.packageReferences.length > 0) {
+            const refs = existingInfo.packageReferences.map(ref => {
+                const version = ref.Version ? ` Version="${ref.Version}"` : '';
+                return `    <PackageReference Include="${ref.Include}"${version} />`;
+            }).join('\n');
+            packageRefs = `\n  <ItemGroup>\n${refs}\n  </ItemGroup>`;
+        }
+
+        return `<Project Sdk="${existingInfo?.sdk || 'Microsoft.NET.Sdk'}">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <Nullable>enable</Nullable>
-  </PropertyGroup>
-
-  <ItemGroup>
-${includes}
-  </ItemGroup>
+    <TargetFramework>${targetFramework}</TargetFramework>
+    <Nullable>${nullable}</Nullable>${customProps}
+  </PropertyGroup>${includes}${packageRefs}
 
 </Project>`;
     }
 
-    private generateFSharpProject(sourceFiles: string[]): string {
-        const includes = sourceFiles.map(f => `    <Compile Include="${f}" />`).join('\n');
+    private generateFSharpProject(
+        sourceFiles: string[], 
+        existingInfo: ProjectInfo | null,
+        versionInfo: DotNetVersionInfo
+    ): string {
+        const hasSubdirectories = sourceFiles.some(f => f.includes(path.sep) || f.includes('/'));
         
-        return `<Project Sdk="Microsoft.NET.Sdk">
+        const targetFramework = existingInfo?.targetFramework || versionInfo.fullTargetFramework;
+        
+        let includes = '';
+        if (hasSubdirectories) {
+            const includesList = sourceFiles.map(f => `    <Compile Include="${f}" />`).join('\n');
+            includes = `\n  <ItemGroup>\n${includesList}\n  </ItemGroup>`;
+        }
+
+        let customProps = '';
+        if (existingInfo?.customProperties) {
+            for (const [key, value] of Object.entries(existingInfo.customProperties)) {
+                customProps += `\n    <${key}>${value}</${key}>`;
+            }
+        }
+
+        let packageRefs = '';
+        if (existingInfo?.packageReferences && existingInfo.packageReferences.length > 0) {
+            const refs = existingInfo.packageReferences.map(ref => {
+                const version = ref.Version ? ` Version="${ref.Version}"` : '';
+                return `    <PackageReference Include="${ref.Include}"${version} />`;
+            }).join('\n');
+            packageRefs = `\n  <ItemGroup>\n${refs}\n  </ItemGroup>`;
+        }
+
+        return `<Project Sdk="${existingInfo?.sdk || 'Microsoft.NET.Sdk'}">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-  </PropertyGroup>
-
-  <ItemGroup>
-${includes}
-  </ItemGroup>
+    <TargetFramework>${targetFramework}</TargetFramework>${customProps}
+  </PropertyGroup>${includes}${packageRefs}
 
 </Project>`;
     }
 
-    private generateVBNetProject(sourceFiles: string[]): string {
-        const includes = sourceFiles.map(f => `    <Compile Include="${f}" />`).join('\n');
+    private generateVBNetProject(
+        sourceFiles: string[], 
+        existingInfo: ProjectInfo | null,
+        versionInfo: DotNetVersionInfo
+    ): string {
+        const hasSubdirectories = sourceFiles.some(f => f.includes(path.sep) || f.includes('/'));
         
-        return `<Project Sdk="Microsoft.NET.Sdk">
+        const targetFramework = existingInfo?.targetFramework || versionInfo.fullTargetFramework;
+        const rootNamespace = existingInfo?.rootNamespace || '';
+        
+        let includes = '';
+        if (hasSubdirectories) {
+            const includesList = sourceFiles.map(f => `    <Compile Include="${f}" />`).join('\n');
+            includes = `\n  <ItemGroup>\n${includesList}\n  </ItemGroup>`;
+        }
+
+        let customProps = '';
+        if (existingInfo?.customProperties) {
+            for (const [key, value] of Object.entries(existingInfo.customProperties)) {
+                customProps += `\n    <${key}>${value}</${key}>`;
+            }
+        }
+
+        let packageRefs = '';
+        if (existingInfo?.packageReferences && existingInfo.packageReferences.length > 0) {
+            const refs = existingInfo.packageReferences.map(ref => {
+                const version = ref.Version ? ` Version="${ref.Version}"` : '';
+                return `    <PackageReference Include="${ref.Include}"${version} />`;
+            }).join('\n');
+            packageRefs = `\n  <ItemGroup>\n${refs}\n  </ItemGroup>`;
+        }
+
+        return `<Project Sdk="${existingInfo?.sdk || 'Microsoft.NET.Sdk'}">
 
   <PropertyGroup>
-    <TargetFramework>net8.0</TargetFramework>
-    <RootNamespace></RootNamespace>
-  </PropertyGroup>
-
-  <ItemGroup>
-${includes}
-  </ItemGroup>
+    <TargetFramework>${targetFramework}</TargetFramework>
+    <RootNamespace>${rootNamespace}</RootNamespace>${customProps}
+  </PropertyGroup>${includes}${packageRefs}
 
 </Project>`;
     }

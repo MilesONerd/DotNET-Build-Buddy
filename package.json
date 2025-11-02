@@ -72,6 +72,36 @@
             "**/node_modules/**"
           ],
           "description": "Patterns to exclude from watching"
+        },
+        "dotnetBuildBuddy.nugetCheckEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable NuGet package compatibility checking"
+        },
+        "dotnetBuildBuddy.nugetApiEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable real-time NuGet API lookups for package information"
+        },
+        "dotnetBuildBuddy.nugetCacheEnabled": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable caching of NuGet compatibility checks"
+        },
+        "dotnetBuildBuddy.nugetCacheExpiry": {
+          "type": "number",
+          "default": 3600,
+          "description": "Cache expiry time in seconds (default: 3600 = 1 hour)"
+        },
+        "dotnetBuildBuddy.nugetIgnoredPackages": {
+          "type": "array",
+          "default": [],
+          "description": "List of NuGet package names or patterns to ignore during compatibility checks"
+        },
+        "dotnetBuildBuddy.nugetApiTimeout": {
+          "type": "number",
+          "default": 5000,
+          "description": "NuGet API request timeout in milliseconds (default: 5000)"
         }
       }
     }
@@ -85,6 +115,7 @@
     "@types/glob": "^8.1.0",
     "@types/node": "16.x",
     "@types/vscode": "^1.74.0",
+    "@types/xml2js": "^0.4.14",
     "typescript": "^4.9.4"
   },
   "dependencies": {

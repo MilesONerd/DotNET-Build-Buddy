@@ -97,7 +97,9 @@ export class FileWatcher implements vscode.Disposable {
             console.log('DotNET Build Buddy: Triggering project file update...');
             try {
                 await this.projectManager.updateAllProjectFiles();
-                console.log('DotNET Build Buddy: Project files updated successfully');
+                // Also update the solution file to include any new projects
+                await this.projectManager.generateSolutionFile();
+                console.log('DotNET Build Buddy: Project files and solution updated successfully');
             } catch (error) {
                 console.error('DotNET Build Buddy: Error updating project files:', error);
                 vscode.window.showErrorMessage(`DotNET Build Buddy: Failed to update project files: ${error}`);
