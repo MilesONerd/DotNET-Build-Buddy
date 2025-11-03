@@ -1,0 +1,23 @@
+name: AI Community Moderator
+on:
+  issue_comment:
+    types: [created]
+  discussion_comment:
+    types: [created]
+  pull_request:
+    types: [opened]
+jobs:
+  community-moderation:
+    if: ${{ !contains(github.event.issue.labels.*.name, 'spam') }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+      discussions: write
+      models: read
+    steps:
+      - uses: benbalter/ai-community-moderator@v1
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          severity-threshold: 4
