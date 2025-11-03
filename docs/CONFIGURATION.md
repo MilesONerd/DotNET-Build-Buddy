@@ -302,3 +302,4 @@ Example workspace settings file:
 - Ignore specific packages: Add to `dotnetBuildBuddy.nugetIgnoredPackages`
 - Disable compatibility checking: `"dotnetBuildBuddy.nugetCheckEnabled": false`
 
+

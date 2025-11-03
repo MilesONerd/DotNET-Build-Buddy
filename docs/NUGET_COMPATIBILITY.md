@@ -304,3 +304,4 @@ Caching improves performance:
 
 Clear cache by restarting VS Code or disabling/re-enabling the extension.
 
+

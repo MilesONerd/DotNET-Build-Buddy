@@ -92,3 +92,4 @@ The extension includes compatibility rules for:
 
 **Note**: This changelog follows [Keep a Changelog](https://keepachangelog.com/) principles.
 
+

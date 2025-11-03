@@ -1,0 +1,31 @@
+name: AI Moderator
+on:
+  issues:
+    types: [opened, edited]
+  issue_comment:
+    types: [created, edited]
+  pull_request_review_comment:
+    types: [created, edited]
+
+jobs:
+  spam-detection:
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+      pull-requests: write
+      models: read
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run AI Moderator
+        uses: github/ai-moderator@v1
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          spam-label: 'spam'
+          ai-label: 'ai-generated'
+          minimize-detected-comments: true
+          enable-spam-detection: true
+          enable-link-spam-detection: true
+          enable-ai-detection: true
+          skip-if-label-exists: true

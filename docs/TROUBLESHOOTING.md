@@ -381,3 +381,4 @@ If project files get corrupted:
    - Create project files manually
    - Extension will update them automatically
 
+
