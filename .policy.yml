@@ -7,11 +7,15 @@ policies:
     approval:
       method: "PR Review"
       required_count: 1
-      teams:
-        - maintainers
       users:
         - MilesONerd
       allow_author: false
+
+    approval_rules:
+      - name: Require review or bot approval
+        requires:
+          count: 1
+          reviewers: ["MilesONerdBot"]
 
     conditions:
       must_not_have_labels:
@@ -28,30 +32,3 @@ policies:
           state: "success"
           description: "✅ All policy checks passed and human approval received."
 
-  - name: "Security and Compliance"
-    description: "Blocks PRs that touch sensitive files or violate project security boundaries."
-    conditions:
-      files:
-        modified:
-          - path: "infra/**"
-          - path: "secrets/**"
-          - path: ".github/workflows/**"
-      require_labels:
-        - "security-review"
-    actions:
-      on_failure:
-        - type: "comment"
-          message: "⚠️ This PR modifies sensitive files. A `security-review` label is required before merge."
-
-  - name: "Documentation Updates"
-    description: "Automatically approves documentation-only changes."
-    conditions:
-      files:
-        only_modified:
-          - "docs/**"
-          - "*.md"
-    actions:
-      on_approval:
-        - type: "status"
-          state: "success"
-          description: "📝 Documentation-only change automatically approved."
