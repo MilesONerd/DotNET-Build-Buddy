@@ -1,0 +1,50 @@
+# milesonerd-bot.yml
+
+bot:
+  name: "MilesONerd Bot"
+  enabled: true
+  log_level: "info"
+
+scope:
+  repositories:
+    - "MilesONerd/DotNET-Build-Buddy"
+  branches:
+    - "main"
+    - "develop"
+
+commands:
+  approve:
+    description: "Approve the PR automatically if all policy checks passed"
+    trigger: "/approve"
+  lint:
+    description: "Run lint checks on PR code"
+    trigger: "/lint"
+  build:
+    description: "Run build and report results"
+    trigger: "/build"
+  changelog:
+    description: "Generate changelog based on commits"
+    trigger: "/changelog"
+
+intelligence:
+  enabled: true
+  model: "gpt-4o"
+  tasks:
+    - "Moderate language in PR comments and issues"
+    - "Suggest code improvements"
+    - "Generate draft changelogs"
+    - "Label AI-generated content automatically"
+
+labels:
+  review_needed: "needs-review"
+  ready_to_merge: "ready-to-merge"
+  spam: "spam"
+  ai_generated: "ai-generated"
+
+notifications:
+  comment_on_action: true
+  comment_template:
+    approve: "✅ PR approved automatically by MilesONerd Bot."
+    lint_fail: "⚠️ Lint check failed! Please fix the issues before merging."
+    build_fail: "⚠️ Build failed! Check the logs and resolve errors."
+    changelog_created: "📝 Draft changelog has been generated automatically."
