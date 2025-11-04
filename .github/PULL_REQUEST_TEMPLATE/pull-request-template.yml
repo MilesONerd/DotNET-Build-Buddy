@@ -1,0 +1,24 @@
+name: "Pull Request"
+about: "Describe your contribution to DotNET Build Buddy"
+title: "[PR] "
+labels: ["needs-review"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        **Description:**  
+        Describe your changes and why they are needed.
+
+        **Related issue:**  
+        (If applicable, link the issue)
+
+        **Type of change:**  
+        - [ ] Bug fix  
+        - [ ] New feature  
+        - [ ] Documentation update  
+
+        **Checklist:**  
+        - [ ] My code follows the project style guidelines  
+        - [ ] I have performed a self-review of my code  
+        - [ ] I have commented my code, particularly in hard-to-understand areas  
+        - [ ] I have added tests that prove my fix is effective or that my feature works
