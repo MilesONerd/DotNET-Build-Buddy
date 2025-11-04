@@ -9,8 +9,7 @@ scope:
   repositories:
     - "MilesONerd/DotNET-Build-Buddy"
   branches:
-    - "main"
-    - "develop"
+    - "master"
 
 commands:
   approve:
