@@ -1,0 +1,15 @@
+name: "Discussion"
+about: "Start a discussion with the DotNET Build Buddy community"
+title: "[Discussion] "
+labels: ["discussion"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Hi! Please describe your topic clearly:
+        
+        **Topic:**  
+        **Details / context:**  
+        **Suggestions or questions:**  
+        
+        Thank you for contributing to a friendly and organized discussion! 
