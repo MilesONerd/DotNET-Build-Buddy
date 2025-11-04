@@ -1,0 +1,22 @@
+blank_issues_enabled: false
+
+templates:
+  - name: "General Discussion"
+    description: "Start a discussion with the DotNET Build Buddy community"
+    about: "Use this template to ask questions, suggest features, or discuss ideas with other contributors."
+    labels: ["discussion"]
+
+  - name: "Question"
+    description: "Have a question about DotNET Build Buddy?"
+    about: "Use this template to ask questions about usage, installation, or behavior of the extension."
+    labels: ["question"]
+
+  - name: "Feature Request"
+    description: "Suggest a new feature for DotNET Build Buddy"
+    about: "Use this template to propose new functionality or improvements. Make sure your suggestion is clear and actionable."
+    labels: ["enhancement", "feature-request"]
+
+contact_links:
+  - name: "Community Discussions"
+    url: "https://github.com/MilesONerd/DotNET-Build-Buddy/discussions"
+    about: "Start or join a discussion with the DotNET Build Buddy community"
