@@ -4,6 +4,7 @@
   "description": "Automatically generates and updates .sln, .csproj, .fsproj, and .vbproj files when .NET ecosystem changes are detected",
   "version": "1.0.0",
   "publisher": "dotnet-build-buddy",
+  "icon": "images/DotNET_Build_Buddy.png",
   "engines": {
     "vscode": "^1.74.0"
   },
