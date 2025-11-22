@@ -61,6 +61,24 @@ jobs:
         env:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
+      - name: Verify publisher ID
+        run: |
+          PUBLISHER=$(node -p "require('./package.json').publisher")
+          echo "Publisher ID: $PUBLISHER"
+          if [ -z "$PUBLISHER" ]; then
+            echo "Error: Publisher ID not found in package.json"
+            exit 1
+          fi
+
+      - name: Create OpenVSX namespace (if not exists)
+        run: |
+          PUBLISHER=$(node -p "require('./package.json').publisher")
+          echo "Attempting to create namespace: $PUBLISHER"
+          ovsx create-namespace "$PUBLISHER" -p ${{ secrets.OVSX_PAT }} || echo "Namespace may already exist, continuing..."
+        continue-on-error: true
+        env:
+          OVSX_PAT: ${{ secrets.OVSX_PAT }}
+
       - name: Publish to VS Code Marketplace
         run: vsce publish --no-yarn -p ${{ secrets.VSCE_PAT }}
         continue-on-error: true
@@ -68,7 +86,14 @@ jobs:
           VSCE_PAT: ${{ secrets.VSCE_PAT }}
 
       - name: Publish to OpenVSX
-        run: ovsx publish -p ${{ secrets.OVSX_PAT }}
+        run: |
+          VSIX_FILE=$(ls *.vsix | head -n 1)
+          if [ -z "$VSIX_FILE" ]; then
+            echo "Error: No .vsix file found"
+            exit 1
+          fi
+          echo "Publishing $VSIX_FILE to OpenVSX..."
+          ovsx publish "$VSIX_FILE" -p ${{ secrets.OVSX_PAT }}
         continue-on-error: true
         env:
           OVSX_PAT: ${{ secrets.OVSX_PAT }}

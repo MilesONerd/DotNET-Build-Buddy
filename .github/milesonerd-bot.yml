@@ -9,8 +9,7 @@ scope:
   repositories:
     - "MilesONerd/DotNET-Build-Buddy"
   branches:
-    - "main"
-    - "develop"
+    - "master"
 
 commands:
   approve:
@@ -36,7 +35,7 @@ intelligence:
     - "Label AI-generated content automatically"
 
 labels:
-  review_needed: "needs-review"
+  review_needed: "needs-human-review"
   ready_to_merge: "ready-to-merge"
   spam: "spam"
   ai_generated: "ai-generated"
