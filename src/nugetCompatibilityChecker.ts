@@ -1074,6 +1074,7 @@ export class NuGetCompatibilityChecker {
                             resolve({
                                 packageId: packageName,
                                 version: version,
+                                versions: [version],
                                 dependencies: dependencies
                             } as NuGetPackageInfoExtended);
                         } else {

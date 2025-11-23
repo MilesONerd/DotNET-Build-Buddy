@@ -174,7 +174,7 @@ export class DotNetProjectManager {
         let allFiles: string[] = [];
         for (const pattern of patterns) {
             try {
-                const files = await glob(pattern, {
+                const files: string[] = await glob(pattern, {
                     cwd: this.workspaceRoot,
                     ignore: excludePatterns
                 });
@@ -194,7 +194,7 @@ export class DotNetProjectManager {
         let allFiles: string[] = [];
         for (const pattern of patterns) {
             try {
-                const files = await glob(pattern, {
+                const files: string[] = await glob(pattern, {
                     cwd: this.workspaceRoot,
                     ignore: excludePatterns
                 });
