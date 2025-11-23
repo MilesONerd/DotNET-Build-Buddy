@@ -57,9 +57,13 @@ jobs:
           if [[ $(echo $VERSION | grep -o "\." | wc -l) -lt 2 ]]; then
             VERSION="$VERSION.0"
           fi
-          echo "Updating package.json version to $VERSION"
-          npm version $VERSION --no-git-tag-version
-          cat package.json | grep '"version"'
+          CURRENT_VERSION=$(node -p "require('./package.json').version")
+          if [ "$CURRENT_VERSION" != "$VERSION" ]; then
+            echo "Updating package.json version to $VERSION"
+            npm version $VERSION --no-git-tag-version
+          else
+            echo "Version $VERSION is already set, skipping npm version"
+          fi        
 
       - name: Package extension
         run: vsce package --no-yarn
