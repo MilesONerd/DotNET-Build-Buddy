@@ -122,5 +122,14 @@
     "glob": "^11.0.3",
     "xml2js": "^0.6.2"
   },
+
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/MilesONerd/DotNET-Build-Buddy.git"
+  },
+  "homepage": "https://github.com/MilesONerd/DotNET-Build-Buddy",
+  "bugs": {
+    "url": "https://github.com/MilesONerd/DotNET-Build-Buddy/issues"
+  },
   "license": "Apache-2.0"
 }
