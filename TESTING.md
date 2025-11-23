@@ -85,7 +85,7 @@ To complete testing, install the packaged extension in VS Code and verify:
 
 1. Install the packaged extension:
    ```bash
-   code --install-extension dotnet-build-buddy-1.0.0.vsix
+   code --install-extension dotnet-build-buddy-1.0.1.vsix
    ```
 
 2. Open a workspace containing .NET source files

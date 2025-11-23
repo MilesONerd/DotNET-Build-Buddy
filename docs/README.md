@@ -165,6 +165,6 @@ Found an error or want to improve documentation?
 ---
 
 **Last Updated**: Latest version  
-**Extension Version**: 1.0.0
+**Extension Version**: 1.0.1
 
 

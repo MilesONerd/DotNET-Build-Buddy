@@ -22,7 +22,7 @@ All project generation tests passed!
 
 ### Extension Packaging ✅
 - **Status**: PASSED  
-- **Package**: dotnet-build-buddy-1.0.0.vsix
+- **Package**: dotnet-build-buddy-1.0.1.vsix
 - **Files**: All required files included
 - **Dependencies**: All required dependencies packaged
 

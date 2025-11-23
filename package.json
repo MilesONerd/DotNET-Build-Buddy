@@ -2,7 +2,7 @@
   "name": "dotnet-build-buddy",
   "displayName": "DotNET Build Buddy",
   "description": "Automatically generates and updates .sln, .csproj, .fsproj, and .vbproj files when .NET ecosystem changes are detected",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "publisher": "DotNET-Build-Buddy",
   "icon": "images/DotNET_Build_Buddy.png",
   "engines": {
