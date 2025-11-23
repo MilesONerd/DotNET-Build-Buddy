@@ -2,12 +2,12 @@
 
 All notable changes to the DotNET Build Buddy extension will be documented in this file.
 
-## [1.0.1] - 2025-01-XX
+## [1.0.1] - 2025-11-23
 
 ### Fixed
 - Bug fixes and stability improvements
 
-## [1.0.0] - 2025-01-XX
+## [1.0.0] - 2025-11-23
 
 ### Added
 
