@@ -177,8 +177,8 @@ export class DotNetProjectManager {
                 const files = await glob(pattern, {
                     cwd: this.workspaceRoot,
                     ignore: excludePatterns
-            });
-            allFiles = allFiles.concat(files.map((f: string) => path.join(this.workspaceRoot, f)));
+                });
+                allFiles = allFiles.concat(files.map((f: string) => path.join(this.workspaceRoot, f)));
             } catch (err) {
                 console.error(`Error searching for pattern ${pattern}:`, err);
             }
@@ -197,8 +197,8 @@ export class DotNetProjectManager {
                 const files = await glob(pattern, {
                     cwd: this.workspaceRoot,
                     ignore: excludePatterns
-            });
-            allFiles = allFiles.concat(files.map((f: string) => path.join(this.workspaceRoot, f)));
+                });
+                allFiles = allFiles.concat(files.map((f: string) => path.join(this.workspaceRoot, f)));
             } catch (err) {
                 console.error(`Error searching for pattern ${pattern}:`, err);
             }

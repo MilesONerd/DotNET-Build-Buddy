@@ -62,10 +62,12 @@ export class NuGetDiagnosticProvider {
         );
         
         let match: RegExpMatchArray | null = null;
-        let position = 0;
+        let position = -1;
         while ((match = packageRefPattern.exec(content)) !== null) {
-            position = match.index;
-            break;
+            if (match.index !== undefined) {
+                position = match.index;
+                break;
+            }
         }
 
         if (position === -1) {

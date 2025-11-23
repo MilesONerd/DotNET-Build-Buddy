@@ -54,7 +54,7 @@ interface NuGetPackageMetadata {
 }
 
 interface PackageCompatibilityRule {
-    packageName: string;
+    packageName?: string;
     packageNamePattern?: RegExp;
     minFramework?: string;
     maxFramework?: string;
@@ -78,6 +78,10 @@ interface NuGetPackageInfo {
     versions: string[];
     supportedFrameworks?: string[];
     deprecated?: boolean;
+}
+
+interface NuGetPackageInfoExtended extends NuGetPackageInfo {
+    dependencies?: PackageDependency[];
 }
 
 export class NuGetCompatibilityChecker {
@@ -116,7 +120,7 @@ export class NuGetCompatibilityChecker {
         }
 
         // Try API lookup if enabled
-        let issue: CompatibilityIssue | null = null;
+        let issue: CompatibilityIssue | null | undefined = null;
         if (this.config.get<boolean>('nugetApiEnabled', true)) {
             issue = await this.checkCompatibilityViaAPI(packageName, packageVersion, targetFramework);
             if (issue !== undefined && issue !== null) {
@@ -126,6 +130,10 @@ export class NuGetCompatibilityChecker {
                     this.setCachedResult(cacheKey, issue);
                 }
                 return issue;
+            }
+            // If API returned undefined, fall through to local rules
+            if (issue === undefined) {
+                issue = null;
             }
         }
 
@@ -168,7 +176,7 @@ export class NuGetCompatibilityChecker {
 
             // Check framework compatibility
             if (packageInfo.supportedFrameworks && packageInfo.supportedFrameworks.length > 0) {
-                const isCompatible = packageInfo.supportedFrameworks.some(fw => 
+                const isCompatible = packageInfo.supportedFrameworks.some((fw: string) => 
                     this.matchesFramework(targetFramework, fw)
                 );
 
@@ -879,7 +887,7 @@ export class NuGetCompatibilityChecker {
             }
 
             // Get latest version that supports the target framework
-            const compatibleVersions = packageInfo.versions.filter(version => {
+            const compatibleVersions = packageInfo.versions.filter((version: string) => {
                 // Try to determine if version supports framework
                 return this.isVersionCompatibleWithFramework(packageName, version, targetFramework);
             });
