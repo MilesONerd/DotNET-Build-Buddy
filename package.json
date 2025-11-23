@@ -113,7 +113,6 @@
     "watch": "tsc -watch -p ./"
   },
   "devDependencies": {
-    "@types/glob": "^8.1.0",
     "@types/node": "^20.14.0",
     "@types/vscode": "^1.90.0",
     "@types/xml2js": "^0.4.14",
