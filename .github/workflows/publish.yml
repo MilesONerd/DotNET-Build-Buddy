@@ -53,7 +53,12 @@ jobs:
       - name: Update package.json version
         if: steps.get_version.outputs.version != ''
         run: |
-          npm version ${{ steps.get_version.outputs.version }} --no-git-tag-version
+          VERSION="${{ steps.get_version.outputs.version }}"
+          if [[ $(echo $VERSION | grep -o "\." | wc -l) -lt 2 ]]; then
+            VERSION="$VERSION.0"
+          fi
+          echo "Updating package.json version to $VERSION"
+          npm version $VERSION --no-git-tag-version
           cat package.json | grep '"version"'
 
       - name: Package extension
@@ -104,4 +109,3 @@ jobs:
           name: extension-vsix
           path: '*.vsix'
           retention-days: 30
-
